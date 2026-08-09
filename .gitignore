@@ -1,0 +1,41 @@
+# --- Runtime outputs ---
+# Engine builds, benchmark logs, annotated frames, and the ONNX itself all land
+# here. Every one of them is regenerable from the committed scripts, and the
+# engine in particular is sm_87-specific and worthless to anyone else.
+runs/
+
+# --- Model / export artifacts ---
+*.pt
+*.pth
+*.onnx
+*.engine
+*.trt
+*.plan
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# --- Environments ---
+.venv/
+venv/
+env/
+
+# --- Captures ---
+*.raw
+*.mp4
+*.mkv
+*.h264
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.cursor/
+*.swp
+
+# --- Secrets ---
+.env
+*.key
