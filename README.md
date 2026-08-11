@@ -20,14 +20,14 @@ Full run notes, checksums, and boundaries live in [`docs/demo_notes.md`](docs/de
 | 2. Build TensorRT engine | Orin Nano | Pending |
 | 3. On-device latency / image runs | Orin Nano | Pending |
 
-Latency figures are only meaningful next to the device power mode that produced them. Capture-chain measurements (chroma sweep) are a different experiment and must not be compared side by side with on-device TensorRT latency.
+Latency figures are only meaningful next to the device power mode that produced them. Capture-chain measurements (chroma sweep) live in [maritime-edge](https://github.com/joejyoung/maritime-edge) and must not be compared side by side with on-device TensorRT latency.
 
 ---
 
 ## Layout
 
 ```
-scripts/          export, engine build, inference, and Argus diagnostics
+scripts/          export, engine build, and inference
 docs/demo_notes.md
 runs/             gitignored runtime artifacts (ONNX, engine, logs, frames)
 ```
@@ -42,13 +42,15 @@ runs/             gitignored runtime artifacts (ONNX, engine, logs, frames)
 
 ### Capture and diagnostics
 
-Also included: session capture, camera/optics checks, frame stats, chroma-sweep ablation, AIS correlation helpers, JetPack/integrity audits (`argus-session.sh`, `argus_camcheck.sh`, `argus_opticheck.sh`, `chroma_sweep.py`, and related scripts).
+Session capture, camera/optics checks, frame stats, chroma-sweep ablation, AIS correlation helpers, and JetPack/integrity audits live in the parallel [maritime-edge](https://github.com/joejyoung/maritime-edge) repository (`argus-session.sh`, `argus_camcheck.sh`, `argus_opticheck.sh`, `chroma_sweep.py`, and related scripts).
 
 ---
 
 ## Environment (x86)
 
-Recreate the workstation conda env used for export and `chroma_sweep.py`:
+Recreate the workstation conda env used for ONNX export:
+
+```
 
 ```bash
 conda env create -f environment.yml

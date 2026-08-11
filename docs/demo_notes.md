@@ -20,10 +20,11 @@ No training, no fine-tuning, no maritime weights. The artifact under test is the
 
 Two further boundaries worth stating explicitly:
 
-- Latency figures here are **on-device Jetson figures**. The chroma-sweep
-  detection rates are capture-chain figures measured on an x86 workstation.
-  They are different measurements and must not be presented side by side as
-  though they were comparable.
+- Latency figures here are **on-device Jetson figures**. Capture-chain
+  experiments (including chroma-sweep detection rates) live in
+  [maritime-edge](https://github.com/joejyoung/maritime-edge) and are measured
+  on an x86 workstation. They are different measurements and must not be
+  presented side by side as though they were comparable.
 - Every latency figure is only valid at the power mode recorded next to it.
 
 ## Deliverables
@@ -43,13 +44,13 @@ Everything generated at runtime lands in `runs/`, which is gitignored.
 
 ### Environment
 
-Exported from the same conda environment that runs `chroma_sweep.py`, so both
-artifacts sit on the same detector lineage. No new environment was created for
-this task and the Jetson's Python environment was never touched.
+Exported from the workstation conda env `maritime-cv` pinned by
+`environment.yml`. No new environment was created for this task and the
+Jetson's Python environment was never touched.
 
 | Item | Value |
 |---|---|
-| Environment | conda env used by `chroma_sweep.py` |
+| Environment | `maritime-cv` |
 | Interpreter | Python 3.10.14 |
 | `ultralytics` | 8.4.100 |
 | `torch` | 2.5.1 (CPU used for export; CUDA irrelevant here) |
@@ -57,10 +58,9 @@ this task and the Jetson's Python environment was never touched.
 | `onnxslim` | 0.1.95 |
 | `onnxruntime-gpu` | 1.23.2 |
 
-Caveat on lineage: 8.4.100 is what that environment reports **now**. If the
-chroma sweep was run before an upgrade of that environment, the two artifacts
-were produced by different `ultralytics` versions and that difference has to be
-stated rather than assumed away.
+Record the `ultralytics` version used for export alongside any comparison to
+other artifacts (for example maritime-edge chroma-sweep runs). Do not assume
+version parity across experiments without checking.
 
 `onnxslim` was not present initially and was pulled in by ultralytics'
 AutoUpdate during the first export (`onnxslim>=0.1.82` is a hard requirement of
@@ -160,7 +160,7 @@ To be recorded once stages 2 and 3 run:
 ### On the x86 workstation
 
 ```bash
-conda activate <chroma-sweep-env>   # same env that runs chroma_sweep.py
+conda activate maritime-cv
 which python                        # confirm before doing anything else
 pip show ultralytics | head -2      # record the version
 
@@ -243,5 +243,6 @@ runs on the device.
 ## Out of scope
 
 No training or dataset code, no SAHI or tiling, no tracking, no INT8
-calibration, no containerisation, no web UI, and no changes to the existing
-`argus_*` diagnostic scripts.
+calibration, no containerisation, no web UI. Capture and diagnostics tooling
+belongs in [maritime-edge](https://github.com/joejyoung/maritime-edge), not
+this repository.

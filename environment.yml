@@ -1,4 +1,4 @@
-# Workstation (x86) environment for ONNX export and chroma_sweep.
+# Workstation (x86) environment for ONNX export.
 # Matches the existing conda env `maritime-cv` used for stage-1 export.
 #
 #   conda env create -f environment.yml

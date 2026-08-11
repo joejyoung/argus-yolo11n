@@ -22,7 +22,7 @@ PURPOSE
   without hardcoding eighty strings.
 
 USAGE
-  # inside the same environment that runs chroma_sweep.py -- not a bare shell
+  # inside the maritime-cv conda env -- not a bare shell
   python scripts/argus_export_onnx.py
   python scripts/argus_export_onnx.py --weights /path/to/yolo11n.pt
   python scripts/argus_export_onnx.py --outdir runs --imgsz 640 --opset 17
@@ -52,8 +52,8 @@ from datetime import datetime, timezone
 # Weight resolution
 #
 # A stock yolo11n.pt already exists in the sibling detector project. Preferring
-# it keeps this artifact on the same weight lineage as the chroma sweep, and
-# avoids a network download that could quietly hand us a different file.
+# it keeps this artifact on a known weight file rather than a network download
+# that could quietly hand us a different digest.
 # ---------------------------------------------------------------------------
 
 WEIGHT_CANDIDATES = [
@@ -92,7 +92,7 @@ def export(args):
         from ultralytics import YOLO
     except ImportError as e:
         sys.exit(f"ultralytics not importable ({e}).\n"
-                 "Activate the environment that runs chroma_sweep.py, or "
+                 "Activate the maritime-cv conda env, or "
                  "'pip install ultralytics' there. Do not do this on the Jetson.")
 
     src, origin = resolve_weights(args.weights)
