@@ -1,0 +1,35 @@
+# Workstation (x86) environment for ONNX export and chroma_sweep.
+# Matches the existing conda env `maritime-cv` used for stage-1 export.
+#
+#   conda env create -f environment.yml
+#   conda activate maritime-cv
+#
+# Do not create or use this env on the Orin Nano. On-device inference relies on
+# JetPack system TensorRT/torch via a --system-site-packages venv; pip-installing
+# those packages here would pull x86 wheels and break the device path.
+
+name: maritime-cv
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10.14
+  - pip
+  - pytorch=2.5.1
+  - torchvision=0.20.1
+  - torchaudio=2.5.1
+  - pytorch-cuda=12.1
+  - numpy=2.2.6
+  - pillow=12.1.0
+  - pandas=2.3.3
+  - matplotlib=3.10.9
+  - ffmpeg=4.3
+  - pip:
+      - ultralytics==8.4.100
+      - onnx==1.22.0
+      - onnxslim==0.1.95
+      - onnxruntime-gpu==1.23.2
+      - opencv-python==5.0.0.93
+      - PyYAML==6.0.3

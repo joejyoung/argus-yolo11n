@@ -46,13 +46,23 @@ Also included: session capture, camera/optics checks, frame stats, chroma-sweep 
 
 ---
 
+## Environment (x86)
+
+Recreate the workstation conda env used for export and `chroma_sweep.py`:
+
+```bash
+conda env create -f environment.yml
+conda activate maritime-cv
+```
+
+`requirements.txt` pins the same pip packages if you already have a compatible PyTorch CUDA 12.1 install. Neither file is for the Orin Nano — on-device inference uses JetPack system TensorRT/torch.
+
 ## Quick start
 
 ### 1. Export (x86)
 
-Same environment that runs `chroma_sweep.py`. Do not install ultralytics into the Jetson venv.
-
 ```bash
+conda activate maritime-cv
 cd <this-repo>
 python scripts/argus_export_onnx.py
 # or: python scripts/argus_export_onnx.py --weights /path/to/yolo11n.pt

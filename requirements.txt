@@ -1,0 +1,22 @@
+# Workstation (x86) Python deps matching conda env `maritime-cv`.
+# Prefer recreating the full stack with:
+#   conda env create -f environment.yml
+#
+# If installing with pip alone, install the PyTorch CUDA 12.1 wheels first:
+#   pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+#     --index-url https://download.pytorch.org/whl/cu121
+# then:
+#   pip install -r requirements.txt
+#
+# Not for the Orin Nano. Do not pip install tensorrt from this file.
+
+ultralytics==8.4.100
+onnx==1.22.0
+onnxslim==0.1.95
+onnxruntime-gpu==1.23.2
+opencv-python==5.0.0.93
+numpy==2.2.6
+pillow==12.1.0
+PyYAML==6.0.3
+matplotlib==3.10.9
+pandas==2.3.3
