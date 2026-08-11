@@ -49,8 +49,8 @@ this task and the Jetson's Python environment was never touched.
 
 | Item | Value |
 |---|---|
-| Environment | conda `maritime-cv` |
-| Interpreter | `/home/josep/miniconda3/envs/maritime-cv/bin/python`, Python 3.10.14 |
+| Environment | conda env used by `chroma_sweep.py` |
+| Interpreter | Python 3.10.14 |
 | `ultralytics` | 8.4.100 |
 | `torch` | 2.5.1 (CPU used for export; CUDA irrelevant here) |
 | `onnx` | 1.22.0 |
@@ -71,11 +71,9 @@ records which path was taken in the sidecar.
 ### Source weights
 
 Stock COCO weights already on disk, reused rather than re-downloaded so the file
-is known rather than whatever the CDN serves today:
-
-```
-/home/josep/projects/computer-vision/maritime-vision/src/models/yolo11n.pt
-```
+is known rather than whatever the CDN serves today. The export script looks for a
+local `yolo11n.pt` (sibling detector checkout by default) before falling back to
+an ultralytics download.
 
 Staged to `runs/yolo11n.pt` before export, because ultralytics writes the ONNX
 next to the `.pt` it loaded.
@@ -162,21 +160,21 @@ To be recorded once stages 2 and 3 run:
 ### On the x86 workstation
 
 ```bash
-conda activate maritime-cv          # the chroma_sweep.py environment
+conda activate <chroma-sweep-env>   # same env that runs chroma_sweep.py
 which python                        # confirm before doing anything else
 pip show ultralytics | head -2      # record the version
 
-cd ~/projects/computer-vision/argus-yolo11n
+cd <this-repo>
 python scripts/argus_export_onnx.py
 ```
 
 ### Transfer to the device
 
 `<jetson>` is a stand-in for the SSH destination. No hostname is recorded in
-this repo.
+this repo. `<jetson-repo>` is the on-device checkout directory.
 
 ```bash
-JETSON_DIR=~/projects/computer-vision/maritime-edge
+JETSON_DIR=<jetson-repo>
 
 ssh <jetson> "mkdir -p $JETSON_DIR/runs $JETSON_DIR/scripts"
 scp runs/yolo11n.onnx runs/yolo11n_meta.json \
@@ -201,7 +199,7 @@ Build the engine. Needs no Python environment — `trtexec` is a compiled binary
 and activating the venv will not fix a failure at this stage.
 
 ```bash
-cd ~/projects/computer-vision/maritime-edge
+cd <jetson-repo>
 sha256sum runs/yolo11n.onnx                 # must match the digest above
 chmod +x scripts/argus_build_engine.sh
 ./scripts/argus_build_engine.sh             # writes runs/engine_build_<utc>.log
