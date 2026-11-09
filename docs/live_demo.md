@@ -50,6 +50,7 @@ scp runs/demo_clips/* <jetson>:"$JETSON_DIR/runs/demo_clips/"
 scp runs/calib/* <jetson>:"$JETSON_DIR/runs/calib/"
 scp scripts/argus_build_engine.sh scripts/argus_build_int8.py \
     scripts/argus_trt_infer.py scripts/argus_live_demo.py \
+    scripts/argus_live_camera.py \
     <jetson>:"$JETSON_DIR/scripts/"
 ```
 
@@ -95,12 +96,34 @@ The window is fullscreen 1920×1080. Frames from a clip that is not already 1080
 
 Keys: `q` quit, `n` next clip, `Space` pause. The playlist loops.
 
+## 5. Live camera
+
+The Arducam B0498 is a USB UVC camera and publishes YUYV only, so this player opens it with `v4l2src`. `nvarguscamerasrc` is installed on the Nano and `nvargus-daemon` is running, but opening it reports no cameras: there is no CSI sensor on this board.
+
+```bash
+source .venv/bin/activate
+python scripts/argus_live_camera.py --precision fp16 --imgsz 640
+python scripts/argus_live_camera.py --width 3840 --height 2160 --fps 15
+```
+
+The default device is `/dev/argus-cam` when that symlink exists, otherwise `/dev/video0`. `/dev/video1` is UVC metadata and is refused. The default capture is 1920×1080 at 30 fps. The picture is letterboxed into the same fullscreen 1920×1080 window, then letterboxed again to the engine's `imgsz`.
+
+Keys: `q` quit, `Space` pause.
+
+The script leaves exposure alone. Manual mode with `exposure_time_absolute=5` is the cached default and produces a black frame. Set both controls in one write before starting:
+
+```bash
+v4l2-ctl -d /dev/argus-cam -c auto_exposure=1,exposure_time_absolute=20000
+```
+
 ## If something fails
 
 - `import tensorrt` fails: the venv is not active, or it was created without `--system-site-packages`. Do not `pip install tensorrt`.
 - The engine fails to deserialize: it was built for another GPU or another TensorRT. Rebuild it on this Nano.
 - `engine input ... is not a 640 or 1280 square`, or `--imgsz` disagrees with the file: the engine and the flag are a different size. Pass the `imgsz` that build used.
 - `cv2.imshow is not available`: this OpenCV build has no GUI. The demo needs the desktop session on the HDMI output.
+- Camera node missing, or the open fails: `v4l2-ctl --list-devices`. The picture is `/dev/video0` (`/dev/argus-cam`). `/dev/video1` is metadata. YUYV modes are 3840×2160 at 15/10/5, 1920×1080 at 60/30/15, and 1280×720 at 90/60/30/15.
+- The live picture is black: exposure is still the cached default of 5. Set `auto_exposure` and `exposure_time_absolute` in one `v4l2-ctl -c` write.
 - INT8 build stops on an empty `runs/calib/`: add stills. A cache from a different ONNX should be deleted before the rebuild.
 - `torch` prints a compute-capability warning about sm_87: expected. Do not reinstall torch to silence it.
 - Do not change the power mode or run `jetson_clocks` to make a figure look better.

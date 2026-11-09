@@ -36,6 +36,7 @@ Two further boundaries worth stating explicitly:
 | `scripts/argus_build_int8.py` | Orin Nano | entropy calibrator and INT8 engine build |
 | `scripts/argus_trt_infer.py` | Orin Nano | inference and latency measurement |
 | `scripts/argus_live_demo.py` | Orin Nano | 1920×1080 clip playback on the desktop |
+| `scripts/argus_live_camera.py` | Orin Nano | 1920×1080 live Arducam view on the desktop |
 | `docs/live_demo.md` | — | quick start for the desktop demo |
 | `docs/demo_notes.md` | — | this file |
 
@@ -211,6 +212,7 @@ scp runs/yolo11n_640.onnx runs/yolo11n_640_meta.json \
     <jetson>:"$JETSON_DIR/runs/"
 scp scripts/argus_build_engine.sh scripts/argus_build_int8.py \
     scripts/argus_trt_infer.py scripts/argus_live_demo.py \
+    scripts/argus_live_camera.py \
     <jetson>:"$JETSON_DIR/scripts/"
 ```
 

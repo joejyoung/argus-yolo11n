@@ -42,6 +42,7 @@ runs/             gitignored runtime artifacts (ONNX, engine, logs, frames, clip
 | `scripts/argus_build_int8.py` | Orin Nano | INT8 calibrator, called by the build script |
 | `scripts/argus_trt_infer.py` | Orin Nano | `--mode image` / `--mode bench` |
 | `scripts/argus_live_demo.py` | Orin Nano | 1920×1080 clip playback on the desktop |
+| `scripts/argus_live_camera.py` | Orin Nano | 1920×1080 live Arducam view on the desktop |
 
 ### Capture and diagnostics
 
@@ -84,6 +85,7 @@ scp runs/yolo11n_640.onnx runs/yolo11n_640_meta.json \
     <jetson>:"$JETSON_DIR/runs/"
 scp scripts/argus_build_engine.sh scripts/argus_build_int8.py \
     scripts/argus_trt_infer.py scripts/argus_live_demo.py \
+    scripts/argus_live_camera.py \
     <jetson>:"$JETSON_DIR/scripts/"
 ```
 
