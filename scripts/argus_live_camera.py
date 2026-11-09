@@ -70,11 +70,18 @@ def reject_metadata_node(device):
 
 
 def capture_pipeline(device, width, height, fps):
-    """YUY2 from v4l2src, newest frame only, BGR for OpenCV."""
+    """YUY2 from v4l2src, newest frame only, BGR for OpenCV.
+
+    The queue drops the older buffer when the next frame arrives, so v4l2src
+    keeps returning USB buffers while inference and videoconvert are busy.
+    Byte and time limits are zeroed so the queue's defaults cannot hold a backlog.
+    """
     return (
         f"v4l2src device={device} io-mode=2 ! "
         f"video/x-raw,format=YUY2,width={width},height={height},"
         f"framerate={fps}/1 ! "
+        "queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 "
+        "leaky=downstream ! "
         "nvvidconv ! video/x-raw,format=BGRx ! "
         "videoconvert ! video/x-raw,format=BGR ! "
         "appsink drop=1 max-buffers=1 sync=false"
