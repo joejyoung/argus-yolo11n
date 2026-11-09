@@ -3,12 +3,12 @@
 Stock YOLOv11n deployment path for the Jetson Orin Nano.
 
 ```
-yolo11n.pt  →  ONNX (opset 17, static 640)  →  trtexec  →  TensorRT FP16 (sm_87)  →  Python inference
+yolo11n.pt  →  ONNX (opset 17, static 640 or 1280)  →  TensorRT FP16 or INT8 (sm_87)  →  Python inference
 ```
 
 This repository exercises the **edge deployment path** with stock COCO weights. It is not a maritime detector, and detections on maritime scenes are not a performance claim about the capstone system.
 
-Full run notes, checksums, and boundaries live in [`docs/demo_notes.md`](docs/demo_notes.md).
+Full run notes, checksums, and boundaries live in [`docs/demo_notes.md`](docs/demo_notes.md). The HDMI clip player is [`docs/live_demo.md`](docs/live_demo.md).
 
 ---
 
@@ -27,18 +27,21 @@ Latency figures are only meaningful next to the device power mode that produced 
 ## Layout
 
 ```
-scripts/          export, engine build, and inference
+scripts/          export, engine build, inference, and the desktop demo
 docs/demo_notes.md
-runs/             gitignored runtime artifacts (ONNX, engine, logs, frames)
+docs/live_demo.md
+runs/             gitignored runtime artifacts (ONNX, engine, logs, frames, clips)
 ```
 
 ### Deployment path
 
 | Script | Host | Role |
 |---|---|---|
-| `scripts/argus_export_onnx.py` | x86 | `.pt` → ONNX + `yolo11n_meta.json` |
-| `scripts/argus_build_engine.sh` | Orin Nano | ONNX → FP16 engine + build provenance log |
+| `scripts/argus_export_onnx.py` | x86 | `.pt` → ONNX + `yolo11n_<imgsz>_meta.json` |
+| `scripts/argus_build_engine.sh` | Orin Nano | ONNX → FP16 or INT8 engine + build provenance log |
+| `scripts/argus_build_int8.py` | Orin Nano | INT8 calibrator, called by the build script |
 | `scripts/argus_trt_infer.py` | Orin Nano | `--mode image` / `--mode bench` |
+| `scripts/argus_live_demo.py` | Orin Nano | 1920×1080 clip playback on the desktop |
 
 ### Capture and diagnostics
 
@@ -49,8 +52,6 @@ Session capture, camera/optics checks, frame stats, chroma-sweep ablation, AIS c
 ## Environment (x86)
 
 Recreate the workstation conda env used for ONNX export:
-
-```
 
 ```bash
 conda env create -f environment.yml
@@ -66,28 +67,33 @@ conda activate maritime-cv
 ```bash
 conda activate maritime-cv
 cd <this-repo>
-python scripts/argus_export_onnx.py
-# or: python scripts/argus_export_onnx.py --weights /path/to/yolo11n.pt
+python scripts/argus_export_onnx.py --imgsz 640
+python scripts/argus_export_onnx.py --imgsz 1280
+# or: python scripts/argus_export_onnx.py --imgsz 640 --weights /path/to/yolo11n.pt
 ```
 
-Writes `runs/yolo11n.onnx` and `runs/yolo11n_meta.json`.
+Writes `runs/yolo11n_640.onnx` and `runs/yolo11n_640_meta.json`, and the same pair for 1280.
 
 ### 2. Transfer to the device
 
 ```bash
 JETSON_DIR=<jetson-repo>
 ssh <jetson> "mkdir -p $JETSON_DIR/runs $JETSON_DIR/scripts"
-scp runs/yolo11n.onnx runs/yolo11n_meta.json <jetson>:"$JETSON_DIR/runs/"
-scp scripts/argus_build_engine.sh scripts/argus_trt_infer.py <jetson>:"$JETSON_DIR/scripts/"
+scp runs/yolo11n_640.onnx runs/yolo11n_640_meta.json \
+    runs/yolo11n_1280.onnx runs/yolo11n_1280_meta.json \
+    <jetson>:"$JETSON_DIR/runs/"
+scp scripts/argus_build_engine.sh scripts/argus_build_int8.py \
+    scripts/argus_trt_infer.py scripts/argus_live_demo.py \
+    <jetson>:"$JETSON_DIR/scripts/"
 ```
 
 ### 3. Build engine (Orin Nano)
 
-Needs `trtexec` only — no Python venv for this step. An engine built on the workstation will not load on the device.
+FP16 needs `trtexec` only. INT8 needs the project venv and stills in `runs/calib/`. An engine built on the workstation will not load on the device. The four build commands and the desktop player are in [`docs/live_demo.md`](docs/live_demo.md).
 
 ```bash
 cd <jetson-repo>
-./scripts/argus_build_engine.sh
+./scripts/argus_build_engine.sh --precision fp16 --imgsz 640
 ```
 
 ### 4. Infer / bench (Orin Nano)
@@ -100,6 +106,7 @@ nvpmodel -q    # record alongside every figure
 
 python scripts/argus_trt_infer.py --mode bench
 python scripts/argus_trt_infer.py --mode image --source runs/rooftop_vessel.png
+python scripts/argus_live_demo.py --precision fp16 --imgsz 640
 ```
 
 ---

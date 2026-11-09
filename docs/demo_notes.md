@@ -5,7 +5,7 @@
 A stock COCO YOLOv11n detector taken end to end onto the edge device:
 
 ```
-ultralytics yolo11n.pt  ->  ONNX (opset 17, static 640)  ->  trtexec  ->  TensorRT FP16 engine (sm_87)  ->  Python inference
+ultralytics yolo11n.pt  ->  ONNX (opset 17, static 640 or 1280)  ->  TensorRT FP16 or INT8 engine (sm_87)  ->  Python inference
 ```
 
 No training, no fine-tuning, no maritime weights. The artifact under test is the
@@ -31,9 +31,12 @@ Two further boundaries worth stating explicitly:
 
 | File | Host | Role |
 |---|---|---|
-| `scripts/argus_export_onnx.py` | x86 workstation | `.pt` -> ONNX, plus metadata sidecar |
-| `scripts/argus_build_engine.sh` | Orin Nano | `trtexec` wrapper + build provenance log |
+| `scripts/argus_export_onnx.py` | x86 workstation | `.pt` -> ONNX at 640 or 1280, plus metadata sidecar |
+| `scripts/argus_build_engine.sh` | Orin Nano | FP16 (`trtexec`) or INT8 build, plus provenance log |
+| `scripts/argus_build_int8.py` | Orin Nano | entropy calibrator and INT8 engine build |
 | `scripts/argus_trt_infer.py` | Orin Nano | inference and latency measurement |
+| `scripts/argus_live_demo.py` | Orin Nano | 1920×1080 clip playback on the desktop |
+| `docs/live_demo.md` | — | quick start for the desktop demo |
 | `docs/demo_notes.md` | — | this file |
 
 Everything generated at runtime lands in `runs/`, which is gitignored.
@@ -95,9 +98,12 @@ Model as fused for export: 100 layers, 2,616,248 parameters, 6.5 GFLOPs.
 
 Shapes are fully static, which is what the engine build expects.
 
-The checksum is for verifying the transfer to the device. It is **not** a
+The checksum is for verifying the transfer of that recorded file. It is **not** a
 reproducibility claim: ultralytics stamps export metadata (including a date)
 into the ONNX, so re-exporting the same weights yields a different digest.
+Current exports are named `runs/yolo11n_640.onnx` and `runs/yolo11n_1280.onnx`,
+each with a matching `yolo11n_<imgsz>_meta.json`. The digest above belongs to
+the file recorded then as `runs/yolo11n.onnx`.
 
 ### Correctness check before leaving the workstation
 
@@ -133,15 +139,36 @@ result is a separate measurement and goes in stage 3 once it exists.
 
 ## Stage 2 — engine build (pending, must run on the Orin Nano)
 
-Not yet run. `trtexec` targets sm_87 natively; an engine built on the
-workstation will not load on the device, so this stage has no workstation
-equivalent and no number here can be filled in from anywhere else.
+Not yet run. An engine is compiled for sm_87 and for the TensorRT on the
+device. An engine built on the workstation will not load here, so this stage
+has no workstation equivalent and no number here can be filled in from
+anywhere else.
+
+The build writes one of four engines. The live-demo picture stays 1920×1080;
+640 and 1280 are network input sizes.
+
+- `runs/yolo11n_fp16_640.engine`
+- `runs/yolo11n_fp16_1280.engine`
+- `runs/yolo11n_int8_640.engine`
+- `runs/yolo11n_int8_1280.engine`
+
+FP16 is `trtexec --fp16` and needs no Python environment. INT8 runs
+`scripts/argus_build_int8.py` from the project venv. It calibrates with
+`IInt8EntropyCalibrator2` on stills in `runs/calib/` and writes
+`runs/calib_int8_<imgsz>.cache`. Layers without an INT8 kernel fall back to
+FP16. That cache is valid only for this TensorRT version on this Nano; delete
+it if the ONNX changes. INT8 behaviour depends on those stills and that cache.
+Nothing from an INT8 build goes into stage 3 until the build has actually run.
+
+The desktop playback steps are in [`docs/live_demo.md`](live_demo.md).
 
 ## Stage 3 — measurements (pending)
 
 **No measurements have been collected yet.** This section is deliberately empty
 rather than populated with estimates. Nothing goes here that was not produced by
-an actual run on the device.
+an actual run on the device. A figure belongs to one engine: its precision and
+its imgsz are part of the record, and a 640 FP16 number is not a 1280 INT8
+number.
 
 To be recorded once stages 2 and 3 run:
 
@@ -165,7 +192,8 @@ which python                        # confirm before doing anything else
 pip show ultralytics | head -2      # record the version
 
 cd <this-repo>
-python scripts/argus_export_onnx.py
+python scripts/argus_export_onnx.py --imgsz 640
+python scripts/argus_export_onnx.py --imgsz 1280
 ```
 
 ### Transfer to the device
@@ -176,15 +204,21 @@ this repo. `<jetson-repo>` is the on-device checkout directory.
 ```bash
 JETSON_DIR=<jetson-repo>
 
-ssh <jetson> "mkdir -p $JETSON_DIR/runs $JETSON_DIR/scripts"
-scp runs/yolo11n.onnx runs/yolo11n_meta.json \
+ssh <jetson> "mkdir -p $JETSON_DIR/runs/demo_clips $JETSON_DIR/runs/calib $JETSON_DIR/scripts"
+scp runs/yolo11n_640.onnx runs/yolo11n_640_meta.json \
+    runs/yolo11n_1280.onnx runs/yolo11n_1280_meta.json \
     runs/rooftop_vessel.png runs/rooftop_empty.png \
     <jetson>:"$JETSON_DIR/runs/"
-scp scripts/argus_build_engine.sh scripts/argus_trt_infer.py \
+scp scripts/argus_build_engine.sh scripts/argus_build_int8.py \
+    scripts/argus_trt_infer.py scripts/argus_live_demo.py \
     <jetson>:"$JETSON_DIR/scripts/"
 ```
 
-Expected checksums on arrival:
+Stage 1 recorded these digests. The ONNX line is the file written then as
+`runs/yolo11n.onnx`. A new export is checked against the sha256 in its own
+sidecar, not against that line. The rooftop frame digests are unchanged.
+
+Checksums recorded for the stage 1 artifact:
 
 ```
 1e024ff2e2db5a62de641b89a67fb73a110a01cb2a0070f9cd38488880f02b6a  runs/yolo11n.onnx
@@ -195,15 +229,25 @@ Expected checksums on arrival:
 
 ### On the Orin Nano
 
-Build the engine. Needs no Python environment — `trtexec` is a compiled binary,
-and activating the venv will not fix a failure at this stage.
+Build an engine. FP16 needs no Python environment — `trtexec` is a compiled
+binary, and activating the venv will not fix a failure at that step. INT8 does
+need the venv, and stills in `runs/calib/`.
 
 ```bash
 cd <jetson-repo>
-sha256sum runs/yolo11n.onnx                 # must match the digest above
+sha256sum runs/yolo11n_640.onnx             # must match that file's sidecar
 chmod +x scripts/argus_build_engine.sh
-./scripts/argus_build_engine.sh             # writes runs/engine_build_<utc>.log
+./scripts/argus_build_engine.sh --precision fp16 --imgsz 640
+./scripts/argus_build_engine.sh --precision fp16 --imgsz 1280
+
+source .venv/bin/activate
+./scripts/argus_build_engine.sh --precision int8 --imgsz 640
+./scripts/argus_build_engine.sh --precision int8 --imgsz 1280
 ```
+
+Each invocation writes `runs/engine_build_<utc>.log`. The default FP16 640
+engine path is `runs/yolo11n_fp16_640.engine`. Desktop playback is
+[`docs/live_demo.md`](live_demo.md).
 
 Measure. This stage *does* need the venv: it was created with
 `--system-site-packages`, which is the only reason `import tensorrt` resolves.
@@ -242,7 +286,8 @@ runs on the device.
 
 ## Out of scope
 
-No training or dataset code, no SAHI or tiling, no tracking, no INT8
-calibration, no containerisation, no web UI. Capture and diagnostics tooling
-belongs in [maritime-edge](https://github.com/joejyoung/maritime-edge), not
-this repository.
+No training or dataset code, no SAHI or tiling, no tracking, no
+containerisation, no web UI. INT8 calibration for the demo engines is in
+scope and lives in `scripts/argus_build_int8.py`. Capture and diagnostics
+tooling belongs in [maritime-edge](https://github.com/joejyoung/maritime-edge),
+not this repository.

@@ -4,7 +4,7 @@ argus_export_onnx.py — stock YOLOv11n -> ONNX, for TensorRT engine build.
 
 Stage 1 of the deployment path:
 
-    yolo11n.pt  ->  ONNX (opset 17, static 640)  ->  trtexec  ->  FP16 engine
+    yolo11n.pt  ->  ONNX (opset 17, static 640 or 1280)  ->  FP16 or INT8 engine
 
 PURPOSE
   Produce an architecture-neutral ONNX that trtexec can consume on the Orin
@@ -13,8 +13,8 @@ PURPOSE
   Jetson venv pulls generic PyPI wheels over the JetPack CUDA build. ONNX is
   portable, so there is no reason to export on-device.
 
-  Exports FP32 and lets trtexec do the FP16 conversion at build time. Doing it
-  twice loses precision for no benefit.
+  Exports FP32. FP16 or INT8 is selected later, when the engine is built on the
+  device. Quantizing here as well would lose precision for no benefit.
 
   Alongside the ONNX this writes a metadata sidecar (class names, tensor names,
   shapes, dtypes, checksums). The Jetson has no ultralytics installed, so that
@@ -26,10 +26,11 @@ USAGE
   python scripts/argus_export_onnx.py
   python scripts/argus_export_onnx.py --weights /path/to/yolo11n.pt
   python scripts/argus_export_onnx.py --outdir runs --imgsz 640 --opset 17
+  python scripts/argus_export_onnx.py --imgsz 1280
 
 OUTPUTS
-  runs/yolo11n.onnx           FP32, static batch 1, 640x640
-  runs/yolo11n_meta.json      class names + tensor signature + SHA256
+  runs/yolo11n_<imgsz>.onnx        FP32, static batch 1, imgsz x imgsz
+  runs/yolo11n_<imgsz>_meta.json   class names + tensor signature + SHA256
 
 EXIT CODES
   0  ONNX written and verified
@@ -130,7 +131,7 @@ def export(args):
         simplify = False
         out = run_export(model, args, simplify)
 
-    onnx_path = os.path.join(args.outdir, "yolo11n.onnx")
+    onnx_path = os.path.join(args.outdir, f"yolo11n_{args.imgsz}.onnx")
     if os.path.abspath(out) != os.path.abspath(onnx_path):
         shutil.move(out, onnx_path)
 
@@ -138,8 +139,8 @@ def export(args):
 
 
 def run_export(model, args, simplify):
-    # No half/quantize argument: FP32 is the export default, and trtexec owns
-    # the FP16 conversion. device='cpu' keeps the export deterministic and
+    # No half/quantize argument: FP32 is the export default. The device build
+    # selects FP16 or INT8. device='cpu' keeps the export deterministic and
     # independent of whatever GPU the workstation happens to have.
     return str(model.export(
         format="onnx",
@@ -215,7 +216,8 @@ def main():
                    help="path to yolo11n.pt (default: local stock weights, else download)")
     p.add_argument("--outdir", default="runs",
                    help="destination for the ONNX and metadata sidecar")
-    p.add_argument("--imgsz", type=int, default=640)
+    p.add_argument("--imgsz", type=int, default=640, choices=(640, 1280),
+                   help="static square input, 640 or 1280")
     p.add_argument("--opset", type=int, default=17)
     p.add_argument("--no-simplify", dest="simplify", action="store_false",
                    help="skip onnxslim (avoids the AutoUpdate install)")
@@ -226,6 +228,11 @@ def main():
     inputs, outputs, opset = tensor_signature(onnx_path)
     digest = sha256(onnx_path)
     report(inputs, outputs, opset, digest, onnx_path)
+
+    expect = [1, 3, args.imgsz, args.imgsz]
+    if len(inputs) != 1 or inputs[0]["shape"] != expect:
+        got = inputs[0]["shape"] if inputs else None
+        sys.exit(f"ONNX input shape {got} does not match {expect}")
 
     try:
         import onnxslim
@@ -243,7 +250,7 @@ def main():
         "onnx_sha256": digest,
         "opset": opset,
         "imgsz": args.imgsz,
-        "precision": "fp32 (trtexec converts to fp16 at build time)",
+        "precision": "fp32 ONNX; FP16 or INT8 is selected when the engine is built",
         "simplify_requested": simplified,
         "onnxslim_version": slim_version,
         "ultralytics_version": ul_version,
@@ -253,7 +260,7 @@ def main():
         "names": names,
     }
 
-    meta_path = os.path.join(args.outdir, "yolo11n_meta.json")
+    meta_path = os.path.join(args.outdir, f"yolo11n_{args.imgsz}_meta.json")
     with open(meta_path, "w") as f:
         json.dump(meta, f, indent=2)
     print(f"meta        {meta_path}")

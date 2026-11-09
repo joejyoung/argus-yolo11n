@@ -4,7 +4,7 @@ argus_trt_infer.py — TensorRT YOLOv11n inference and latency measurement.
 
 Stage 3 of the deployment path:
 
-    yolo11n.pt -> ONNX -> trtexec -> FP16 engine -> [ this script ]
+    yolo11n.pt -> ONNX -> FP16 or INT8 engine (640 or 1280) -> [ this script ]
 
 PURPOSE
   Runs a trtexec-built engine on the Orin Nano, two ways:
@@ -492,16 +492,16 @@ def mode_image(args, engine, names):
                   f"{x2 - x1:>6.1f} {y2 - y1:>6.1f}")
         # Box height in source pixels is the figure the pixel-cascade argument
         # needs: h_px is what the sensor saw, h_px * r is what survived the
-        # resize to 640, and that divided by 8 is how many P3 stride-8 cells
-        # the object actually occupied.
+        # resize to the engine spatial size, and that divided by 8 is how many
+        # P3 stride-8 cells the object actually occupied.
         heights = dets[:, 3] - dets[:, 1]
         tallest, shortest = heights.max(), heights.min()
         print(f"\n  letterbox scale   {r:.4f}  "
               f"({frame.shape[1]}x{frame.shape[0]} -> {size}x{size})")
         print(f"  tallest box       {tallest:.1f}px source -> "
-              f"{tallest * r:.1f}px at 640 -> {tallest * r / 8:.2f} P3 cells")
+              f"{tallest * r:.1f}px at {size} -> {tallest * r / 8:.2f} P3 cells")
         print(f"  shortest box      {shortest:.1f}px source -> "
-              f"{shortest * r:.1f}px at 640 -> {shortest * r / 8:.2f} P3 cells")
+              f"{shortest * r:.1f}px at {size} -> {shortest * r / 8:.2f} P3 cells")
     else:
         print("\n  no detections above threshold")
         print("  A negative result is a result. Do not lower --conf to "
@@ -546,9 +546,9 @@ def main():
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--mode", choices=["image", "bench"], required=True)
-    p.add_argument("--engine", default="runs/yolo11n_fp16.engine")
-    p.add_argument("--meta", default="runs/yolo11n_meta.json",
-                   help="export sidecar, read for COCO class names")
+    p.add_argument("--engine", default="runs/yolo11n_fp16_640.engine")
+    p.add_argument("--meta", default="runs/yolo11n_640_meta.json",
+                   help="export sidecar, read for class names")
     p.add_argument("--source", default="", help="input image for --mode image")
     p.add_argument("--outdir", default="runs")
     p.add_argument("--conf", type=float, default=0.25)
